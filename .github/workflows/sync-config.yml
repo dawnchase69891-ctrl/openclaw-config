@@ -1,0 +1,80 @@
+name: Sync Agent Config
+
+on:
+  schedule:
+    # 每 5 分钟执行一次
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    # 允许手动触发
+
+env:
+  PYTHON_VERSION: '3.11'
+  TIMEOUT_MINUTES: 10
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ env.TIMEOUT_MINUTES }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests jsonschema
+      
+      - name: Fetch Feishu Bitable
+        env:
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_BITABLE_TOKEN: ${{ secrets.FEISHU_BITABLE_TOKEN }}
+        run: |
+          python scripts/sync_feishu_to_openclaw.py
+        continue-on-error: false
+      
+      - name: Validate configuration
+        run: |
+          python scripts/validate_config.py
+      
+      - name: Commit and push changes
+        run: |
+          git config user.name "OpenClaw Sync Bot"
+          git config user.email "openclaw-sync@github.com"
+          
+          # 检查是否有变更
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          # 创建带时间戳的 commit message
+          COMMIT_MSG="chore: sync agent config $(date -u +'%Y-%m-%d %H:%M UTC')"
+          
+          git add -A
+          git commit -m "$COMMIT_MSG" || exit 0
+          
+          # 推送前拉取最新代码
+          git pull --rebase
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Notify success
+        if: success()
+        run: |
+          echo "✅ 配置同步成功"
+      
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "❌ 配置同步失败"
+          # 这里可以添加飞书/Slack 通知
