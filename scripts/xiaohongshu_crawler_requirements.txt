@@ -1,0 +1,7 @@
+# 小红书爬虫依赖
+# 安装命令：pip install -r xiaohongshu_crawler_requirements.txt
+
+playwright>=1.40.0
+asyncio-compat>=0.1.0
+
+# 安装后请运行：playwright install chromium

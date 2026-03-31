@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 持仓数据同步脚本
 从东方财富 API 获取最新股价，更新飞书多维表格持仓表
@@ -20,17 +21,16 @@ HOLDINGS = [
 
 def get_stock_prices():
     """从东方财富 API 获取股价"""
-    codes = ",".join([f"0.{h['code']}" for h in HOLDINGS])
-    url = f"http://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids={codes}&fields=f12,f14,f2,f3"
+    codes = ",".join(["0.{}".format(h['code']) for h in HOLDINGS])
+    url = "http://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids={}&fields=f12,f14,f2,f3".format(codes)
     
-    result = subprocess.run(
-        ["curl", "-s", url],
-        capture_output=True,
-        text=True,
-        timeout=10
-    )
+    import urllib2
+    request = urllib2.Request(url)
+    request.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+    response = urllib2.urlopen(request, timeout=10)
+    result_stdout = response.read()
     
-    data = json.loads(result.stdout)
+    data = json.loads(result_stdout)
     prices = {}
     for item in data.get('data', {}).get('diff', []):
         code = item.get('f12', '')
@@ -47,7 +47,7 @@ def sync_to_feishu(prices):
     for holding in HOLDINGS:
         code = holding["code"]
         if code not in prices:
-            print(f"⚠️ {holding['name']} 价格获取失败")
+            print(u"⚠️ {} 价格获取失败".format(holding['name']))
             continue
         
         price = prices[code]["price"]
@@ -60,7 +60,7 @@ def sync_to_feishu(prices):
         market_value = round(price * shares, 2)
         
         # 更新飞书
-        print(f"📈 {holding['name']}: ¥{price} ({profit_pct:+.2f}%)")
+        print(u"📈 {}: ¥{} ({:+.2f}%)".format(holding['name'], price, profit_pct))
         
         # 调用飞书 API 更新
         # 这里需要用 subprocess 调用 openclaw 命令或直接调用 API

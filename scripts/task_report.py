@@ -21,17 +21,18 @@ from pathlib import Path
 
 WORKSPACE = Path.home() / '.openclaw' / 'workspace'
 
+# 从环境变量加载敏感配置（.env 文件）
 # 飞书多维表格配置
-BITABLE_APP_TOKEN = "Gl4ibvzo7aJ8Uxsi3qbcHlSgnzb"
-BITABLE_TABLE_ID = "tbllY5zE0YqSqtyJ"
+BITABLE_APP_TOKEN = os.getenv('BITABLE_APP_TOKEN', 'Gl4ibvzo7aJ8Uxsi3qbcHlSgnzb')
+BITABLE_TABLE_ID = os.getenv('BITABLE_TABLE_ID', 'tbllY5zE0YqSqtyJ')
 
 # 飞书应用配置
-FEISHU_APP_ID = "cli_a917e43cb0e29bc2"
-FEISHU_APP_SECRET = "GfPZSnzF5cjlJsGcugIhSfHHi3HvAEHM"
+FEISHU_APP_ID = os.getenv('FEISHU_APP_ID', 'cli_a917e43cb0e29bc2')
+FEISHU_APP_SECRET = os.getenv('FEISHU_APP_SECRET', 'GfPZSnzF5cjlJsGcugIhSfHHi3HvAEHM')
 
 # 通知配置
-CEO_OPEN_ID = "ou_9c111f465a69f41b26e059801d9b79f0"  # 骐骥
-TASK_NOTIFY_GROUP_ID = "oc_88d2f2fdba3985ce4af408c6084faff1"  # 任务通知群
+CEO_OPEN_ID = os.getenv('CEO_OPEN_ID', 'ou_9c111f465a69f41b26e059801d9b79f0')  # 骐骥
+TASK_NOTIFY_GROUP_ID = os.getenv('TASK_NOTIFY_GROUP_ID', 'oc_88d2f2fdba3985ce4af408c6084faff1')  # 任务通知群
 
 
 def get_tenant_access_token() -> str:

@@ -43,7 +43,10 @@ AGENT_CONFIG_DIR = WORKSPACE / 'agents'
 
 # 飞书 API 配置
 FEISHU_API_BASE = 'https://open.feishu.cn/open-apis'
-BITABLE_APP_TOKEN = os.getenv('FEISHU_BITABLE_TOKEN', '')
+# 从环境变量加载敏感配置（.env 文件）
+BITABLE_APP_TOKEN = os.getenv('BITABLE_APP_TOKEN', '')
+FEISHU_APP_ID = os.getenv('FEISHU_APP_ID', '')
+FEISHU_APP_SECRET = os.getenv('FEISHU_APP_SECRET', '')
 
 # Agent 配置 Schema
 AGENT_CONFIG_SCHEMA = {

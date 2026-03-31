@@ -1,0 +1,10 @@
+# 调仓提醒系统定时任务
+
+# 盘前提醒（09:00）
+0 9 * * 1-5 /usr/bin/python3 /home/uos/.openclaw/workspace/scripts/feishu_rebalance_reminder.py morning >> /home/uos/.openclaw/workspace/logs/rebalance_morning.log 2>&1
+
+# 收盘复盘（15:30）
+30 15 * * 1-5 /usr/bin/python3 /home/uos/.openclaw/workspace/scripts/feishu_rebalance_reminder.py evening >> /home/uos/.openclaw/workspace/logs/rebalance_evening.log 2>&1
+
+# 价格刷新（每小时检查一次，仅在交易时间）
+0 10-14 * * 1-5 /usr/bin/python3 /home/uos/.openclaw/workspace/scripts/feishu_rebalance_reminder.py refresh >> /home/uos/.openclaw/workspace/logs/rebalance_refresh.log 2>&1

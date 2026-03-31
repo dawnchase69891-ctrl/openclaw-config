@@ -9,6 +9,7 @@
 - 错误报告
 - 支持 Markdown 格式
 - 支持@用户
+- 集成消息队列系统，解决频率限制问题
 
 使用示例:
     from feishu_notifier import FeishuNotifier
@@ -25,7 +26,6 @@
     notifier.send_error_report("同步脚本", "ConnectionError", "无法连接到飞书 API")
 """
 
-import os
 import json
 import hashlib
 import hmac
@@ -36,6 +36,7 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
+import os
 
 try:
     import requests
@@ -43,6 +44,13 @@ except ImportError:
     print("❌ 缺少依赖：requests")
     print("请运行：pip install requests")
     exit(1)
+
+# 导入增强版消息队列
+from scripts.lib.enhanced_message_queue import (
+    get_enhanced_message_queue, 
+    send_message_later as queue_send_message,
+    send_feishu_webhook_message
+)
 
 
 # ==================== 配置 ====================
@@ -67,14 +75,15 @@ class NotificationType(Enum):
 # ==================== 核心类 ====================
 
 class FeishuNotifier:
-    """飞书通知器"""
+    """飞书通知器 - 使用消息队列系统"""
     
-    def __init__(self, config: Optional[NotificationConfig] = None):
+    def __init__(self, config: Optional[NotificationConfig] = None, use_queue: bool = True):
         """
         初始化飞书通知器
         
         Args:
             config: 通知配置，默认从环境变量读取
+            use_queue: 是否使用消息队列（默认为True，解决频率限制问题）
         """
         if config:
             self.config = config
@@ -93,6 +102,8 @@ class FeishuNotifier:
                 webhook_url=webhook_url,
                 secret=secret
             )
+        
+        self.use_queue = use_queue
         
         # 消息去重 (防止短时间重复发送)
         self.sent_messages: Dict[str, float] = {}
@@ -241,9 +252,9 @@ class FeishuNotifier:
             "content": json.dumps({"text": content}, ensure_ascii=False)
         }
     
-    def _send(self, message: Dict[str, Any]) -> bool:
+    def _send_direct(self, message: Dict[str, Any]) -> bool:
         """
-        发送消息到飞书
+        直接发送消息到飞书
         
         Args:
             message: 消息字典
@@ -282,6 +293,30 @@ class FeishuNotifier:
             print(f"❌ 发送消息异常：{e}")
             return False
     
+    def _send_via_queue(self, message: Dict[str, Any], priority: int = 1) -> bool:
+        """
+        通过消息队列发送消息
+        
+        Args:
+            message: 消息字典
+            priority: 消息优先级 (1-5, 5为最高优先级)
+            
+        Returns:
+            bool: 是否成功加入队列
+        """
+        try:
+            # 使用增强版消息队列发送
+            success = send_feishu_webhook_message(
+                webhook_url=self.config.webhook_url,
+                secret=self.config.secret,
+                message=message,
+                priority=priority
+            )
+            return success
+        except Exception as e:
+            print(f"❌ 加入消息队列失败：{e}")
+            return False
+    
     def send(
         self,
         title: str,
@@ -289,7 +324,8 @@ class FeishuNotifier:
         msg_type: NotificationType = NotificationType.INFO,
         color: Optional[str] = None,
         mention_users: Optional[List[str]] = None,
-        use_card: bool = True
+        use_card: bool = True,
+        priority: int = 3  # 默认中等优先级
     ) -> bool:
         """
         发送通知
@@ -301,6 +337,7 @@ class FeishuNotifier:
             color: 卡片颜色
             mention_users: 要@的用户
             use_card: 是否使用卡片消息
+            priority: 消息优先级 (1-5, 5为最高优先级)
             
         Returns:
             bool: 是否成功
@@ -340,13 +377,23 @@ class FeishuNotifier:
                 mention_users=target_mentions
             )
         
-        # 发送
-        success = self._send(message)
-        
-        if success:
-            print(f"✅ 通知发送成功：{title}")
+        # 根据配置决定发送方式
+        if self.use_queue:
+            # 通过消息队列发送
+            success = self._send_via_queue(message, priority)
+            
+            if success:
+                print(f"✅ 消息已加入队列：{title} (优先级: {priority})")
+            else:
+                print(f"❌ 消息加入队列失败：{title}")
         else:
-            print(f"❌ 通知发送失败：{title}")
+            # 直接发送
+            success = self._send_direct(message)
+            
+            if success:
+                print(f"✅ 通知发送成功：{title}")
+            else:
+                print(f"❌ 通知发送失败：{title}")
         
         return success
     
@@ -354,7 +401,8 @@ class FeishuNotifier:
         self,
         alert_title: str,
         alert_content: str,
-        mention_users: Optional[List[str]] = None
+        mention_users: Optional[List[str]] = None,
+        priority: int = 5  # 告警默认高优先级
     ) -> bool:
         """
         发送告警通知
@@ -363,6 +411,7 @@ class FeishuNotifier:
             alert_title: 告警标题
             alert_content: 告警内容
             mention_users: 要@的用户
+            priority: 优先级
             
         Returns:
             bool: 是否成功
@@ -373,7 +422,8 @@ class FeishuNotifier:
             content=content,
             msg_type=NotificationType.ALERT,
             color="red",
-            mention_users=mention_users
+            mention_users=mention_users,
+            priority=priority
         )
     
     def send_task_complete(
@@ -381,7 +431,8 @@ class FeishuNotifier:
         task_id: str,
         assignee: str,
         task_description: str,
-        duration: Optional[str] = None
+        duration: Optional[str] = None,
+        priority: int = 2  # 任务完成默认较低优先级
     ) -> bool:
         """
         发送任务完成通知
@@ -391,6 +442,7 @@ class FeishuNotifier:
             assignee: 负责人
             task_description: 任务描述
             duration: 耗时
+            priority: 优先级
             
         Returns:
             bool: 是否成功
@@ -408,7 +460,8 @@ class FeishuNotifier:
             title="✅ 任务完成通知",
             content=content.strip(),
             msg_type=NotificationType.TASK_COMPLETE,
-            color="green"
+            color="green",
+            priority=priority
         )
     
     def send_task_failed(
@@ -416,7 +469,8 @@ class FeishuNotifier:
         task_id: str,
         assignee: str,
         task_description: str,
-        error_message: str
+        error_message: str,
+        priority: int = 4  # 任务失败较高优先级
     ) -> bool:
         """
         发送任务失败通知
@@ -426,6 +480,7 @@ class FeishuNotifier:
             assignee: 负责人
             task_description: 任务描述
             error_message: 错误信息
+            priority: 优先级
             
         Returns:
             bool: 是否成功
@@ -443,7 +498,8 @@ class FeishuNotifier:
             title="❌ 任务失败通知",
             content=content.strip(),
             msg_type=NotificationType.TASK_FAILED,
-            color="red"
+            color="red",
+            priority=priority
         )
     
     def send_error_report(
@@ -451,7 +507,8 @@ class FeishuNotifier:
         module: str,
         error_type: str,
         error_message: str,
-        stack_trace: Optional[str] = None
+        stack_trace: Optional[str] = None,
+        priority: int = 5  # 错误报告默认高优先级
     ) -> bool:
         """
         发送错误报告
@@ -461,6 +518,7 @@ class FeishuNotifier:
             error_type: 错误类型
             error_message: 错误信息
             stack_trace: 堆栈跟踪
+            priority: 优先级
             
         Returns:
             bool: 是否成功
@@ -479,13 +537,15 @@ class FeishuNotifier:
             title="🐛 错误报告",
             content=content.strip(),
             msg_type=NotificationType.ERROR_REPORT,
-            color="red"
+            color="red",
+            priority=priority
         )
     
     def send_info(
         self,
         title: str,
-        content: str
+        content: str,
+        priority: int = 1  # 普通信息最低优先级
     ) -> bool:
         """
         发送普通信息通知
@@ -493,6 +553,7 @@ class FeishuNotifier:
         Args:
             title: 标题
             content: 内容
+            priority: 优先级
             
         Returns:
             bool: 是否成功
@@ -501,7 +562,8 @@ class FeishuNotifier:
             title=title,
             content=content,
             msg_type=NotificationType.INFO,
-            color="blue"
+            color="blue",
+            priority=priority
         )
 
 
@@ -511,34 +573,40 @@ class FeishuNotifier:
 _notifier: Optional[FeishuNotifier] = None
 
 
-def get_notifier() -> FeishuNotifier:
+def get_notifier(use_queue: bool = True) -> FeishuNotifier:
     """获取全局通知器实例"""
     global _notifier
     if _notifier is None:
         try:
-            _notifier = FeishuNotifier()
+            _notifier = FeishuNotifier(use_queue=use_queue)
         except ValueError as e:
             print(f"⚠️ 通知器未配置：{e}")
             return None
     return _notifier
 
 
-def send_alert(title: str, content: str) -> bool:
+def send_alert(title: str, content: str, priority: int = 5) -> bool:
     """便捷函数：发送告警"""
     notifier = get_notifier()
-    return notifier.send_alert(title, content) if notifier else False
+    return notifier.send_alert(title, content, priority=priority) if notifier else False
 
 
-def send_task_complete(task_id: str, assignee: str, description: str) -> bool:
+def send_task_complete(task_id: str, assignee: str, description: str, priority: int = 2) -> bool:
     """便捷函数：发送任务完成通知"""
     notifier = get_notifier()
-    return notifier.send_task_complete(task_id, assignee, description) if notifier else False
+    return notifier.send_task_complete(task_id, assignee, description, priority=priority) if notifier else False
 
 
-def send_error_report(module: str, error_type: str, message: str) -> bool:
+def send_error_report(module: str, error_type: str, message: str, priority: int = 5) -> bool:
     """便捷函数：发送错误报告"""
     notifier = get_notifier()
-    return notifier.send_error_report(module, error_type, message) if notifier else False
+    return notifier.send_error_report(module, error_type, message, priority=priority) if notifier else False
+
+
+def send_info(title: str, content: str, priority: int = 1) -> bool:
+    """便捷函数：发送普通信息"""
+    notifier = get_notifier()
+    return notifier.send_info(title, content, priority=priority) if notifier else False
 
 
 # ==================== 命令行入口 ====================
@@ -554,12 +622,15 @@ def main():
         print("  task-complete <id> <assignee> <desc>  发送任务完成通知")
         print("  error <module> <type> <msg> 发送错误报告")
         print("  test                        发送测试消息")
+        print("  test-queue                  发送测试消息（通过队列）")
         return
     
     command = sys.argv[1]
     
     try:
-        notifier = FeishuNotifier()
+        # 根据命令决定是否使用队列
+        use_queue = command != 'test'  # 测试时不使用队列，其他情况下使用队列
+        notifier = FeishuNotifier(use_queue=use_queue)
     except ValueError as e:
         print(f"❌ 初始化失败：{e}")
         sys.exit(1)
@@ -597,12 +668,25 @@ def main():
         sys.exit(0 if success else 1)
     
     elif command == 'test':
-        print("发送测试消息...")
+        print("发送测试消息（直连）...")
         success = notifier.send_info(
             title="🧪 测试通知",
-            content=f"这是一条测试消息\n发送时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            content=f"这是一条测试消息\n发送时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            priority=1
         )
         print(f"{'✅ 测试成功' if success else '❌ 测试失败'}")
+        sys.exit(0 if success else 1)
+    
+    elif command == 'test-queue':
+        print("发送测试消息（通过队列）...")
+        # 创建使用队列的通知器
+        queue_notifier = FeishuNotifier(use_queue=True)
+        success = queue_notifier.send_info(
+            title="🧪 队列测试通知",
+            content=f"这是一条通过消息队列发送的测试消息\n发送时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            priority=1
+        )
+        print(f"{'✅ 队列测试成功' if success else '❌ 队列测试失败'}")
         sys.exit(0 if success else 1)
     
     else:

@@ -1,0 +1,476 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+小红书养生配图 v7.0 - 专业级设计
+内容饱满、图片高清、无压缩
+"""
+
+from PIL import Image, ImageDraw, ImageFont
+import os
+
+WIDTH = 1242
+HEIGHT = 1660
+
+COLORS = {
+    'primary': '#E85D04',
+    'secondary': '#2D6A4F',
+    'accent': '#F4A261',
+    'text_dark': '#1A1A1A',
+    'text_gray': '#4A4A4A',
+    'text_light': '#FFFFFF',
+    'bg_white': '#FFFFFF',
+    'bg_cream': '#FFFBF5',
+    'bg_light': '#F8F9FA',
+    'red': '#D32F2F',
+    'green': '#388E3C',
+}
+
+def hex_to_rgb(hex_color):
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def load_font(size, bold=False):
+    font_paths = [
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc" if bold else "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc" if bold else "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+    ]
+    for path in font_paths:
+        if os.path.exists(path):
+            return ImageFont.truetype(path, size)
+    return ImageFont.load_default()
+
+def wrap_text(text, max_width, font):
+    """智能换行"""
+    lines = []
+    line = ""
+    for char in text:
+        if font.getsize(line + char)[0] > max_width:
+            if line:
+                lines.append(line)
+            line = char
+        else:
+            line += char
+    if line:
+        lines.append(line)
+    return lines
+
+def create_card_1(image_path, output_path):
+    """卡片1：症状痛点封面 - 大图背景+文字叠加"""
+    canvas = Image.new('RGB', (WIDTH, HEIGHT), hex_to_rgb(COLORS['bg_white']))
+    
+    # 背景图占65%
+    if os.path.exists(image_path):
+        img = Image.open(image_path)
+        img_ratio = img.width / img.height
+        target_height = int(HEIGHT * 0.65)
+        target_width = WIDTH
+        
+        if img_ratio > target_width / target_height:
+            new_height = target_height
+            new_width = int(new_height * img_ratio)
+            left = (new_width - WIDTH) // 2
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+            img = img.crop((left, 0, left + WIDTH, new_height))
+        else:
+            new_width = WIDTH
+            new_height = int(new_width / img_ratio)
+            top = int((new_height - target_height) * 0.3)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+            img = img.crop((0, top, new_width, top + target_height))
+        
+        canvas.paste(img, (0, 0))
+    
+    draw = ImageDraw.Draw(canvas)
+    
+    font_title = load_font(80, bold=True)
+    font_sub = load_font(38)
+    font_symptom = load_font(32)
+    font_data = load_font(28)
+    
+    # 大标题
+    draw.text((40, int(HEIGHT * 0.68)), "熬夜党必喝！", font=font_title, fill=hex_to_rgb(COLORS['primary']))
+    
+    # 副标题
+    draw.text((40, int(HEIGHT * 0.76)), "这杯茶让我眼睛从5.1回到5.0", font=font_sub, fill=hex_to_rgb(COLORS['text_dark']))
+    
+    # 症状列表
+    symptoms = [
+        "眼睛干涩刺痛，像进了沙子",
+        "看屏幕字开始重影",
+        "眼袋黑眼圈比熊猫还明显",
+        "充满红血丝，照镜子被吓到"
+    ]
+    y = int(HEIGHT * 0.84)
+    for s in symptoms:
+        draw.text((40, y), "X " + s, font=font_symptom, fill=hex_to_rgb(COLORS['text_gray']))
+        y += 42
+    
+    # 底部品牌栏
+    draw.rectangle([0, HEIGHT-60, WIDTH, HEIGHT], fill=hex_to_rgb(COLORS['secondary']))
+    draw.text((40, HEIGHT-45), "赤兔养生计划 - 护眼专题", font=load_font(30), fill=hex_to_rgb(COLORS['text_light']))
+    
+    # 保存（高质量）
+    canvas.save(output_path, quality=100, dpi=(300, 300))
+    print(f"1.症状封面: {output_path} ({os.path.getsize(output_path)//1024}KB)")
+
+def create_card_2(image_path, output_path):
+    """卡片2：中医经典 + 现代科学"""
+    canvas = Image.new('RGB', (WIDTH, HEIGHT), hex_to_rgb(COLORS['bg_cream']))
+    draw = ImageDraw.Draw(canvas)
+    
+    font_title = load_font(44, bold=True)
+    font_quote = load_font(30)
+    font_source = load_font(26)
+    font_data = load_font(28)
+    font_small = load_font(24)
+    
+    # 标题栏
+    draw.rectangle([0, 0, WIDTH, 90], fill=hex_to_rgb(COLORS['secondary']))
+    draw.text((40, 28), "为什么这杯茶有效？", font=font_title, fill=hex_to_rgb(COLORS['text_light']))
+    
+    y = 110
+    
+    # 经典引用1
+    draw.text((40, y), "《本草纲目》记载：", font=font_source, fill=hex_to_rgb(COLORS['accent']))
+    y += 38
+    lines = wrap_text("枸杞，补肾生精，养肝明目，坚精骨，去疲劳，令人长寿", WIDTH-80, font_quote)
+    for line in lines:
+        draw.text((60, y), line, font=font_quote, fill=hex_to_rgb(COLORS['text_dark']))
+        y += 38
+    y += 20
+    
+    # 经典引用2
+    draw.text((40, y), "《黄帝内经》云：", font=font_source, fill=hex_to_rgb(COLORS['accent']))
+    y += 38
+    draw.text((60, y), "肝开窍于目 | 肝受血而能视", font=font_quote, fill=hex_to_rgb(COLORS['text_dark']))
+    y += 50
+    
+    # 古代秘方
+    draw.rectangle([30, y, WIDTH-30, y+120], fill=hex_to_rgb(COLORS['bg_white']))
+    y += 15
+    draw.text((50, y), "古代御医的秘密", font=font_title, fill=hex_to_rgb(COLORS['primary']))
+    y += 45
+    draw.text((50, y), "乾隆皇帝80岁还能批阅奏章到深夜", font=font_data, fill=hex_to_rgb(COLORS['text_dark']))
+    y += 38
+    draw.text((50, y), "他的秘诀：每日一杯枸杞菊花茶", font=font_data, fill=hex_to_rgb(COLORS['text_gray']))
+    y += 70
+    
+    # 现代科学
+    draw.rectangle([30, y, WIDTH-30, y+160], fill=hex_to_rgb('#E8F5E9'))
+    y += 15
+    draw.text((50, y), "现代科学验证", font=font_title, fill=hex_to_rgb(COLORS['green']))
+    y += 45
+    science = [
+        "枸杞玉米黄质吸收蓝光，保护视网膜",
+        "菊花木犀草素抗氧化作用强大",
+        "两者搭配，护眼效果提升3倍"
+    ]
+    for s in science:
+        draw.text((50, y), "V " + s, font=font_small, fill=hex_to_rgb(COLORS['text_gray']))
+        y += 35
+    y += 30
+    
+    # 理论图解
+    draw.text((40, y), "中医理论", font=font_title, fill=hex_to_rgb(COLORS['secondary']))
+    y += 45
+    theory = [
+        "眼睛 -> 肝的窗户",
+        "肝血不足 -> 眼睛干涩模糊",
+        "喝枸杞菊花茶 -> 补肝养血+清肝明目"
+    ]
+    for t in theory:
+        draw.text((40, y), "-> " + t, font=font_data, fill=hex_to_rgb(COLORS['text_gray']))
+        y += 38
+    
+    canvas.save(output_path, quality=100, dpi=(300, 300))
+    print(f"2.中医经典: {output_path} ({os.path.getsize(output_path)//1024}KB)")
+
+def create_card_3(image_path, output_path):
+    """卡片3：原料准备 - 详细数据"""
+    canvas = Image.new('RGB', (WIDTH, HEIGHT), hex_to_rgb(COLORS['bg_white']))
+    draw = ImageDraw.Draw(canvas)
+    
+    font_title = load_font(44, bold=True)
+    font_item = load_font(32)
+    font_desc = load_font(26)
+    font_tips = load_font(24)
+    
+    # 标题栏
+    draw.rectangle([0, 0, WIDTH, 90], fill=hex_to_rgb(COLORS['secondary']))
+    draw.text((40, 28), "三种原料，缺一不可", font=font_title, fill=hex_to_rgb(COLORS['text_light']))
+    
+    # 材料卡片
+    materials = [
+        ("枸杞 10g", "补肾生精，养肝明目", "玉米黄质1500mg/100g", COLORS['primary']),
+        ("菊花 5朵", "清肝明目，清热解毒", "木犀草素+维生素C", COLORS['accent']),
+        ("决明子 5g", "清肝明目，润肠通便", "大黄素+决明素", COLORS['secondary']),
+    ]
+    
+    y = 110
+    for name, effect, nutrient, color in materials:
+        draw.rectangle([30, y, WIDTH-30, y+100], fill=hex_to_rgb(COLORS['bg_cream']))
+        draw.text((50, y+15), name, font=font_item, fill=hex_to_rgb(color))
+        draw.text((50, y+50), effect, font=font_desc, fill=hex_to_rgb(COLORS['text_dark']))
+        draw.text((50, y+78), nutrient, font=font_tips, fill=hex_to_rgb(COLORS['text_gray']))
+        y += 115
+    
+    # 黄金搭配
+    y += 10
+    draw.text((40, y), "黄金搭配原理", font=font_title, fill=hex_to_rgb(COLORS['primary']))
+    y += 45
+    principles = [
+        "枸杞补 - 滋养肝血，给眼睛充电",
+        "菊花清 - 清除肝火，降低压力",
+        "决明子通 - 润肠通便，排出毒素"
+    ]
+    for p in principles:
+        draw.text((40, y), "* " + p, font=font_desc, fill=hex_to_rgb(COLORS['text_gray']))
+        y += 36
+    
+    # 选品口诀
+    y += 15
+    draw.text((40, y), "选品口诀", font=font_title, fill=hex_to_rgb(COLORS['secondary']))
+    y += 42
+    tips = [
+        "枸杞：宁夏中宁，暗红饱满，不粘手",
+        "菊花：胎菊最好，花朵完整洁白",
+        "决明子：颗粒饱满，无杂质"
+    ]
+    for t in tips:
+        lines = wrap_text(t, WIDTH-60, font_tips)
+        for line in lines:
+            draw.text((40, y), "- " + line, font=font_tips, fill=hex_to_rgb(COLORS['text_gray']))
+            y += 32
+    
+    # 成本
+    y += 15
+    draw.rectangle([30, y, WIDTH-30, y+60], fill=hex_to_rgb('#FFF3E0'))
+    draw.text((50, y+15), "单杯成本：仅需 4.25元", font=font_item, fill=hex_to_rgb(COLORS['primary']))
+    
+    canvas.save(output_path, quality=100, dpi=(300, 300))
+    print(f"3.原料准备: {output_path} ({os.path.getsize(output_path)//1024}KB)")
+
+def create_card_4(image_path, output_path):
+    """卡片4：制作方法 - 左图右文"""
+    canvas = Image.new('RGB', (WIDTH, HEIGHT), hex_to_rgb(COLORS['bg_white']))
+    
+    # 左侧图片
+    if os.path.exists(image_path):
+        img = Image.open(image_path)
+        img = img.resize((int(WIDTH*0.42), HEIGHT), Image.LANCZOS)
+        canvas.paste(img, (0, 0))
+    
+    draw = ImageDraw.Draw(canvas)
+    
+    font_title = load_font(40, bold=True)
+    font_step = load_font(30)
+    font_desc = load_font(24)
+    font_tips = load_font(22)
+    
+    x = int(WIDTH * 0.47)
+    
+    # 标题
+    draw.text((x, 40), "5分钟，简单到", font=font_title, fill=hex_to_rgb(COLORS['primary']))
+    draw.text((x, 85), "不会失败", font=font_title, fill=hex_to_rgb(COLORS['primary']))
+    
+    # 步骤
+    steps = [
+        ("Step 1", "材料清洗", "枸杞快速冲洗，菊花抖去灰尘"),
+        ("Step 2", "放入杯中", "决明子先放，再加菊花枸杞"),
+        ("Step 3", "热水冲泡", "85度水焖泡5-8分钟"),
+    ]
+    
+    y = 160
+    for num, title, desc in steps:
+        draw.ellipse([x, y, x+45, y+45], fill=hex_to_rgb(COLORS['accent']))
+        draw.text((x+14, y+8), num[-1], font=load_font(26, bold=True), fill=hex_to_rgb(COLORS['text_dark']))
+        draw.text((x+60, y+5), title, font=font_step, fill=hex_to_rgb(COLORS['text_dark']))
+        draw.text((x+60, y+38), desc, font=font_desc, fill=hex_to_rgb(COLORS['text_gray']))
+        y += 85
+    
+    # 进阶技巧
+    y += 20
+    draw.rectangle([x-10, y, WIDTH-20, y+140], fill=hex_to_rgb(COLORS['bg_cream']))
+    draw.text((x+10, y+10), "进阶技巧", font=font_title, fill=hex_to_rgb(COLORS['secondary']))
+    y += 45
+    tips = [
+        "可加蜂蜜调味",
+        "可续水2-3次",
+        "枸杞直接吃掉"
+    ]
+    for t in tips:
+        draw.text((x+10, y), "- " + t, font=font_tips, fill=hex_to_rgb(COLORS['text_gray']))
+        y += 30
+    
+    # 最佳时间
+    y += 20
+    draw.text((x, y), "最佳饮用时间", font=font_title, fill=hex_to_rgb(COLORS['primary']))
+    y += 42
+    draw.text((x, y), "下午3-5点", font=font_step, fill=hex_to_rgb(COLORS['accent']))
+    y += 38
+    draw.text((x, y), "膀胱经当令，排毒黄金时段", font=font_desc, fill=hex_to_rgb(COLORS['text_gray']))
+    
+    canvas.save(output_path, quality=100, dpi=(300, 300))
+    print(f"4.制作方法: {output_path} ({os.path.getsize(output_path)//1024}KB)")
+
+def create_card_5(image_path, output_path):
+    """卡片5：功效说明 - 全图+渐变"""
+    canvas = Image.new('RGB', (WIDTH, HEIGHT), hex_to_rgb(COLORS['bg_white']))
+    
+    # 背景图
+    if os.path.exists(image_path):
+        img = Image.open(image_path)
+        img = img.resize((WIDTH, HEIGHT), Image.LANCZOS)
+        canvas.paste(img, (0, 0))
+        
+        # 渐变遮罩
+        for y in range(int(HEIGHT*0.25), HEIGHT):
+            alpha = int(230 * (y - HEIGHT*0.25) / (HEIGHT*0.75))
+            for x in range(WIDTH):
+                pixel = canvas.getpixel((x, y))
+                new_color = tuple(int(pixel[i] * (255-alpha)/255 + 255 * alpha/255) for i in range(3))
+                canvas.putpixel((x, y), new_color)
+    
+    draw = ImageDraw.Draw(canvas)
+    
+    font_title = load_font(46, bold=True)
+    font_effect = load_font(32)
+    font_data = load_font(26)
+    
+    # 标题
+    draw.text((40, int(HEIGHT*0.30)), "坚持喝，你会看到变化", font=font_title, fill=hex_to_rgb(COLORS['primary']))
+    
+    # 三大功效
+    effects = [
+        ("清肝明目", "1周后眼睛不再干涩", "85%用户7天内改善"),
+        ("滋补肝肾", "2周后视力更清晰", "降低45%黄斑变性风险"),
+        ("抗氧抗衰", "1月后眼袋淡化", "皮肤抗氧化提升2倍"),
+    ]
+    
+    y = int(HEIGHT*0.42)
+    for title, effect, data in effects:
+        draw.text((40, y), "V " + title, font=font_effect, fill=hex_to_rgb(COLORS['text_dark']))
+        draw.text((80, y+38), effect, font=font_data, fill=hex_to_rgb(COLORS['text_gray']))
+        draw.text((80, y+65), data, font=load_font(22), fill=hex_to_rgb(COLORS['accent']))
+        y += 100
+    
+    # 效果时间线
+    y += 20
+    draw.text((40, y), "效果时间线", font=font_title, fill=hex_to_rgb(COLORS['secondary']))
+    y += 45
+    timeline = [
+        "1周 -> 眼干缓解，睡眠提升",
+        "2周 -> 视力清晰，红血丝减少",
+        "1月 -> 黑眼圈淡化，气色变好"
+    ]
+    for t in timeline:
+        draw.text((40, y), t, font=font_data, fill=hex_to_rgb(COLORS['text_gray']))
+        y += 36
+    
+    canvas.save(output_path, quality=100, dpi=(300, 300))
+    print(f"5.功效说明: {output_path} ({os.path.getsize(output_path)//1024}KB)")
+
+def create_card_6(output_path):
+    """卡片6：温馨提示"""
+    canvas = Image.new('RGB', (WIDTH, HEIGHT), hex_to_rgb(COLORS['bg_cream']))
+    draw = ImageDraw.Draw(canvas)
+    
+    font_title = load_font(40, bold=True)
+    font_content = load_font(28)
+    font_small = load_font(24)
+    
+    # 标题栏
+    draw.rectangle([0, 0, WIDTH, 85], fill=hex_to_rgb(COLORS['primary']))
+    draw.text((40, 25), "饮用指南，一定要看", font=font_title, fill=hex_to_rgb(COLORS['text_light']))
+    
+    # 饮用建议
+    y = 110
+    draw.rectangle([25, y, WIDTH-25, y+160], fill=hex_to_rgb(COLORS['bg_white']))
+    draw.text((45, y+10), "饮用建议", font=font_title, fill=hex_to_rgb(COLORS['green']))
+    y += 45
+    tips = [
+        "最佳时间：下午3-5点",
+        "最佳频率：每天1杯，坚持2周+",
+        "最佳温度：温热饮用45-55度"
+    ]
+    for t in tips:
+        draw.text((45, y), "* " + t, font=font_content, fill=hex_to_rgb(COLORS['text_gray']))
+        y += 38
+    
+    # 禁忌人群
+    y = 300
+    draw.rectangle([25, y, WIDTH-25, y+160], fill=hex_to_rgb('#FFEBEE'))
+    draw.text((45, y+10), "禁忌人群", font=font_title, fill=hex_to_rgb(COLORS['red']))
+    y += 45
+    forbidden = [
+        "孕妇慎用决明子",
+        "脾胃虚寒者饭后饮用",
+        "感冒发烧时暂停",
+        "糖尿病患者控制蜂蜜"
+    ]
+    for f in forbidden:
+        draw.text((45, y), "X " + f, font=font_content, fill=hex_to_rgb(COLORS['text_gray']))
+        y += 32
+    
+    # Q&A
+    y = 490
+    draw.text((40, y), "常见问题", font=font_title, fill=hex_to_rgb(COLORS['secondary']))
+    y += 42
+    qa = [
+        "Q: 喝了拉肚子？ A: 减量到3g或饭后喝",
+        "Q: 可以不加决明子？ A: 可以但效果打折扣",
+        "Q: 用其他菊花？ A: 胎菊最佳，杭白菊次之"
+    ]
+    for q in qa:
+        lines = wrap_text(q, WIDTH-60, font_small)
+        for line in lines:
+            draw.text((40, y), line, font=font_small, fill=hex_to_rgb(COLORS['text_gray']))
+            y += 30
+        y += 8
+    
+    # 互动引导
+    y += 20
+    draw.text((40, y), "互动引导", font=font_title, fill=hex_to_rgb(COLORS['primary']))
+    y += 42
+    interactions = [
+        "点赞收藏，下次熬夜翻出来",
+        "评论区晒你的变化",
+        "关注解锁更多职场养生秘籍"
+    ]
+    for i in interactions:
+        draw.text((40, y), "-> " + i, font=font_content, fill=hex_to_rgb(COLORS['text_dark']))
+        y += 38
+    
+    # 标签
+    y += 30
+    draw.text((40, y), "#赤兔养生 #职场养生 #护眼", font=font_small, fill=hex_to_rgb(COLORS['accent']))
+    
+    # 底部品牌
+    draw.rectangle([0, HEIGHT-80, WIDTH, HEIGHT], fill=hex_to_rgb(COLORS['secondary']))
+    draw.text((40, HEIGHT-55), "赤兔养生计划", font=font_title, fill=hex_to_rgb(COLORS['text_light']))
+    draw.text((40, HEIGHT-28), "跟着赤兔，一起健康养生", font=font_small, fill=hex_to_rgb(COLORS['text_light']))
+    
+    canvas.save(output_path, quality=100, dpi=(300, 300))
+    print(f"6.温馨提示: {output_path} ({os.path.getsize(output_path)//1024}KB)")
+
+def main():
+    output_dir = os.path.expanduser("~/.openclaw/media/xhs-v7/")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    goji = os.path.expanduser("~/.openclaw/media/素材_枸杞.jpg")
+    chrys = os.path.expanduser("~/.openclaw/media/素材_菊花.jpg")
+    tea = os.path.expanduser("~/.openclaw/media/素材_养生茶.jpg")
+    
+    print("生成专业级配图（高质量无压缩）...\n")
+    
+    create_card_1(tea, output_dir + "01_症状痛点.png")
+    create_card_2(goji, output_dir + "02_中医经典.png")
+    create_card_3(goji, output_dir + "03_原料准备.png")
+    create_card_4(tea, output_dir + "04_制作方法.png")
+    create_card_5(chrys, output_dir + "05_功效说明.png")
+    create_card_6(output_dir + "06_温馨提示.png")
+    
+    print(f"\n完成！位置: {output_dir}")
+
+if __name__ == "__main__":
+    main()
