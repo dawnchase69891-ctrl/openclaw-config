@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-03-16T17:47:35.361228",
+  "status": "critical",
+  "checks": [
+    {
+      "name": "Gateway 状态",
+      "status": "error",
+      "message": "检查失败：Command '['openclaw', 'gateway', 'status']' timed out after 10 seconds",
+      "auto_fix": null
+    },
+    {
+      "name": "配置文件",
+      "status": "ok",
+      "message": "配置完整",
+      "auto_fix": null
+    },
+    {
+      "name": "JSON 语法",
+      "status": "ok",
+      "message": "格式正确",
+      "auto_fix": null
+    },
+    {
+      "name": "飞书通道",
+      "status": "warning",
+      "message": "检查失败：Command '['openclaw', 'config', 'get', 'channels.feishu']' timed out after 10 seconds",
+      "auto_fix": null
+    },
+    {
+      "name": "Cron 任务",
+      "status": "warning",
+      "message": "检查失败：Command '['openclaw', 'cron', 'list']' timed out after 10 seconds",
+      "auto_fix": null
+    },
+    {
+      "name": "今日记忆",
+      "status": "ok",
+      "message": "2026-03-16.md 已创建",
+      "auto_fix": null
+    },
+    {
+      "name": "SESSION-STATE",
+      "status": "ok",
+      "message": "WAL 协议正常",
+      "auto_fix": null
+    },
+    {
+      "name": "磁盘使用",
+      "status": "ok",
+      "message": "使用率 11.0% (正常)",
+      "auto_fix": null
+    },
+    {
+      "name": "上下文使用",
+      "status": "warning",
+      "message": "检查失败：Command '['openclaw', 'status']' timed out after 10 seconds",
+      "auto_fix": null
+    }
+  ],
+  "alerts": [
+    "Gateway 状态: 检查失败：Command '['openclaw', 'gateway', 'status']' timed out after 10 seconds",
+    "飞书通道: 检查失败：Command '['openclaw', 'config', 'get', 'channels.feishu']' timed out after 10 seconds",
+    "Cron 任务: 检查失败：Command '['openclaw', 'cron', 'list']' timed out after 10 seconds",
+    "上下文使用: 检查失败：Command '['openclaw', 'status']' timed out after 10 seconds"
+  ],
+  "auto_fixes": []
+}

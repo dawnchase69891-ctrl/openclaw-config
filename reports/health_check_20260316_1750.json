@@ -1,0 +1,64 @@
+{
+  "timestamp": "2026-03-16T17:50:17.889493",
+  "status": "warning",
+  "checks": [
+    {
+      "name": "Gateway 状态",
+      "status": "ok",
+      "message": "进程运行中",
+      "auto_fix": null
+    },
+    {
+      "name": "配置文件",
+      "status": "ok",
+      "message": "配置完整",
+      "auto_fix": null
+    },
+    {
+      "name": "JSON 语法",
+      "status": "ok",
+      "message": "格式正确",
+      "auto_fix": null
+    },
+    {
+      "name": "飞书通道",
+      "status": "ok",
+      "message": "已启用",
+      "auto_fix": null
+    },
+    {
+      "name": "Cron 任务",
+      "status": "warning",
+      "message": "cron 配置文件不存在",
+      "auto_fix": null
+    },
+    {
+      "name": "今日记忆",
+      "status": "ok",
+      "message": "2026-03-16.md 已创建",
+      "auto_fix": null
+    },
+    {
+      "name": "SESSION-STATE",
+      "status": "ok",
+      "message": "WAL 协议正常",
+      "auto_fix": null
+    },
+    {
+      "name": "磁盘使用",
+      "status": "ok",
+      "message": "使用率 11.0% (正常)",
+      "auto_fix": null
+    },
+    {
+      "name": "上下文使用",
+      "status": "ok",
+      "message": "22 个会话文件",
+      "auto_fix": null
+    }
+  ],
+  "alerts": [
+    "Cron 任务: cron 配置文件不存在"
+  ],
+  "auto_fixes": []
+}
